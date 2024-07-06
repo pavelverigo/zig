@@ -5524,16 +5524,16 @@ fn cmpBigInt(func: *CodeGen, lhs: WValue, rhs: WValue, operand_ty: Type, op: std
         return func.fail("TODO: Support cmpBigInt for integer bitsize: '{d}'", .{operand_ty.bitSize(pt)});
     }
 
-    var lhs_high_bit = try (try func.load(lhs, Type.u64, 0)).toLocal(func, Type.u64);
+    var lhs_high_bit = try (try func.load(lhs, Type.u64, 8)).toLocal(func, Type.u64);
     defer lhs_high_bit.free(func);
-    var rhs_high_bit = try (try func.load(rhs, Type.u64, 0)).toLocal(func, Type.u64);
+    var rhs_high_bit = try (try func.load(rhs, Type.u64, 8)).toLocal(func, Type.u64);
     defer rhs_high_bit.free(func);
 
     switch (op) {
         .eq, .neq => {
             const xor_high = try func.binOp(lhs_high_bit, rhs_high_bit, Type.u64, .xor);
-            const lhs_low_bit = try func.load(lhs, Type.u64, 8);
-            const rhs_low_bit = try func.load(rhs, Type.u64, 8);
+            const lhs_low_bit = try func.load(lhs, Type.u64, 0);
+            const rhs_low_bit = try func.load(rhs, Type.u64, 0);
             const xor_low = try func.binOp(lhs_low_bit, rhs_low_bit, Type.u64, .xor);
             const or_result = try func.binOp(xor_high, xor_low, Type.u64, .@"or");
 
@@ -5546,9 +5546,9 @@ fn cmpBigInt(func: *CodeGen, lhs: WValue, rhs: WValue, operand_ty: Type, op: std
         else => {
             const ty = if (operand_ty.isSignedInt(mod)) Type.i64 else Type.u64;
             // leave those value on top of the stack for '.select'
-            const lhs_low_bit = try func.load(lhs, Type.u64, 8);
-            const rhs_low_bit = try func.load(rhs, Type.u64, 8);
-            _ = try func.cmp(lhs_low_bit, rhs_low_bit, ty, op);
+            const lhs_low_bit = try func.load(lhs, Type.u64, 0);
+            const rhs_low_bit = try func.load(rhs, Type.u64, 0);
+            _ = try func.cmp(lhs_low_bit, rhs_low_bit, Type.u64, op);
             _ = try func.cmp(lhs_high_bit, rhs_high_bit, ty, op);
             _ = try func.cmp(lhs_high_bit, rhs_high_bit, ty, .eq);
             try func.addTag(.select);
