@@ -828,26 +828,20 @@ test "128-bit multiplication" {
     }
 }
 
+fn expectAddWithOverflow(comptime T: type, a: T, b: T, add: T, bit: u1) !void {
+    const ov = @addWithOverflow(a, b);
+    try expect(ov[0] == add);
+    try expect(ov[1] == bit);
+}
+
 test "@addWithOverflow" {
     if (builtin.zig_backend == .stage2_aarch64) return error.SkipZigTest; // TODO
     if (builtin.zig_backend == .stage2_arm) return error.SkipZigTest; // TODO
     if (builtin.zig_backend == .stage2_sparc64) return error.SkipZigTest; // TODO
     if (builtin.zig_backend == .stage2_riscv64) return error.SkipZigTest;
 
-    {
-        var a: u8 = 250;
-        _ = &a;
-        const ov = @addWithOverflow(a, 100);
-        try expect(ov[0] == 94);
-        try expect(ov[1] == 1);
-    }
-    {
-        var a: u8 = 100;
-        _ = &a;
-        const ov = @addWithOverflow(a, 150);
-        try expect(ov[0] == 250);
-        try expect(ov[1] == 0);
-    }
+    try expectAddWithOverflow(u8, 250, 100, 94, 1);
+    try expectAddWithOverflow(u8, 100, 150, 250, 0);
     {
         var a: u8 = 200;
         _ = &a;
@@ -861,23 +855,54 @@ test "@addWithOverflow" {
         try expect(ov[1] == 0);
     }
 
-    {
-        var a: usize = 6;
-        var b: usize = 6;
-        _ = .{ &a, &b };
-        const ov = @addWithOverflow(a, b);
-        try expect(ov[0] == 12);
-        try expect(ov[1] == 0);
-    }
+    try expectAddWithOverflow(usize, 6, 6, 12, 0);
+    try expectAddWithOverflow(usize, maxInt(usize), 6, 5, 1);
 
-    {
-        var a: isize = -6;
-        var b: isize = -6;
-        _ = .{ &a, &b };
-        const ov = @addWithOverflow(a, b);
-        try expect(ov[0] == -12);
-        try expect(ov[1] == 0);
-    }
+    try expectAddWithOverflow(isize, -6, -6, -12, 0);
+    try expectAddWithOverflow(isize, minInt(isize), -6, maxInt(isize) - 5, 1);
+}
+
+test "@addWithOverflow > 64 bits" {
+    if (builtin.zig_backend == .stage2_aarch64) return error.SkipZigTest; // TODO
+    if (builtin.zig_backend == .stage2_arm) return error.SkipZigTest; // TODO
+    if (builtin.zig_backend == .stage2_sparc64) return error.SkipZigTest; // TODO
+    if (builtin.zig_backend == .stage2_riscv64) return error.SkipZigTest;
+
+    try expectAddWithOverflow(u65, 4, 105, 109, 0);
+    try expectAddWithOverflow(u65, 1000, 100, 1100, 0);
+    try expectAddWithOverflow(u65, 100, maxInt(u65) - 99, 0, 1);
+    try expectAddWithOverflow(u65, maxInt(u65), maxInt(u65), maxInt(u65) - 1, 1);
+    try expectAddWithOverflow(u65, maxInt(u65) - 1, maxInt(u65), maxInt(u65) - 2, 1);
+    try expectAddWithOverflow(u65, maxInt(u65), maxInt(u65) - 1, maxInt(u65) - 2, 1);
+
+    try expectAddWithOverflow(u128, 4, 105, 109, 0);
+    try expectAddWithOverflow(u128, 1000, 100, 1100, 0);
+    try expectAddWithOverflow(u128, 100, maxInt(u128) - 99, 0, 1);
+    try expectAddWithOverflow(u128, maxInt(u128), maxInt(u128), maxInt(u128) - 1, 1);
+    try expectAddWithOverflow(u128, maxInt(u128) - 1, maxInt(u128), maxInt(u128) - 2, 1);
+    try expectAddWithOverflow(u128, maxInt(u128), maxInt(u128) - 1, maxInt(u128) - 2, 1);
+
+    try expectAddWithOverflow(i65, 4, -105, -101, 0);
+    try expectAddWithOverflow(i65, 1000, 100, 1100, 0);
+    try expectAddWithOverflow(i65, minInt(i65), 1, minInt(i65) + 1, 0);
+    try expectAddWithOverflow(i65, maxInt(i65), minInt(i65), -1, 0);
+    try expectAddWithOverflow(i65, minInt(i65), maxInt(i65), -1, 0);
+    try expectAddWithOverflow(i65, maxInt(i65), -2, maxInt(i65) - 2, 0);
+    try expectAddWithOverflow(i65, maxInt(i65), maxInt(i65), -2, 1);
+    try expectAddWithOverflow(i65, minInt(i65), minInt(i65), 0, 1);
+    try expectAddWithOverflow(i65, maxInt(i65) - 1, maxInt(i65), -3, 1);
+    try expectAddWithOverflow(i65, maxInt(i65), maxInt(i65) - 1, -3, 1);
+
+    try expectAddWithOverflow(i128, 4, -105, -101, 0);
+    try expectAddWithOverflow(i128, 1000, 100, 1100, 0);
+    try expectAddWithOverflow(i128, minInt(i128), 1, minInt(i128) + 1, 0);
+    try expectAddWithOverflow(i128, maxInt(i128), minInt(i128), -1, 0);
+    try expectAddWithOverflow(i128, minInt(i128), maxInt(i128), -1, 0);
+    try expectAddWithOverflow(i128, maxInt(i128), -2, maxInt(i128) - 2, 0);
+    try expectAddWithOverflow(i128, maxInt(i128), maxInt(i128), -2, 1);
+    try expectAddWithOverflow(i128, minInt(i128), minInt(i128), 0, 1);
+    try expectAddWithOverflow(i128, maxInt(i128) - 1, maxInt(i128), -3, 1);
+    try expectAddWithOverflow(i128, maxInt(i128), maxInt(i128) - 1, -3, 1);
 }
 
 test "small int addition" {
@@ -1265,26 +1290,20 @@ test "@mulWithOverflow u256" {
     }
 }
 
+fn expectSubWithOverflow(comptime T: type, a: T, b: T, sub: T, bit: u1) !void {
+    const ov = @subWithOverflow(a, b);
+    try expect(ov[0] == sub);
+    try expect(ov[1] == bit);
+}
+
 test "@subWithOverflow" {
     if (builtin.zig_backend == .stage2_aarch64) return error.SkipZigTest; // TODO
     if (builtin.zig_backend == .stage2_arm) return error.SkipZigTest; // TODO
     if (builtin.zig_backend == .stage2_sparc64) return error.SkipZigTest; // TODO
     if (builtin.zig_backend == .stage2_riscv64) return error.SkipZigTest;
 
-    {
-        var a: u8 = 1;
-        _ = &a;
-        const ov = @subWithOverflow(a, 2);
-        try expect(ov[0] == 255);
-        try expect(ov[1] == 1);
-    }
-    {
-        var a: u8 = 1;
-        _ = &a;
-        const ov = @subWithOverflow(a, 1);
-        try expect(ov[0] == 0);
-        try expect(ov[1] == 0);
-    }
+    try expectSubWithOverflow(u8, 1, 2, 255, 1);
+    try expectSubWithOverflow(u8, 1, 1, 0, 0);
 
     {
         var a: u8 = 1;
@@ -1299,23 +1318,51 @@ test "@subWithOverflow" {
         try expect(ov[1] == 0);
     }
 
-    {
-        var a: usize = 6;
-        var b: usize = 6;
-        _ = .{ &a, &b };
-        const ov = @subWithOverflow(a, b);
-        try expect(ov[0] == 0);
-        try expect(ov[1] == 0);
-    }
+    try expectSubWithOverflow(usize, 6, 6, 0, 0);
+    try expectSubWithOverflow(usize, 6, 7, maxInt(usize), 1);
+    try expectSubWithOverflow(isize, -6, -6, 0, 0);
+    try expectSubWithOverflow(isize, minInt(isize), 6, maxInt(isize) - 5, 1);
+}
 
-    {
-        var a: isize = -6;
-        var b: isize = -6;
-        _ = .{ &a, &b };
-        const ov = @subWithOverflow(a, b);
-        try expect(ov[0] == 0);
-        try expect(ov[1] == 0);
-    }
+test "@subWithOverflow > 64 bits" {
+    if (builtin.zig_backend == .stage2_aarch64) return error.SkipZigTest; // TODO
+    if (builtin.zig_backend == .stage2_arm) return error.SkipZigTest; // TODO
+    if (builtin.zig_backend == .stage2_sparc64) return error.SkipZigTest; // TODO
+    if (builtin.zig_backend == .stage2_riscv64) return error.SkipZigTest;
+
+    try expectSubWithOverflow(u65, 4, 105, maxInt(u65) - 100, 1);
+    try expectSubWithOverflow(u65, 1000, 100, 900, 0);
+    try expectSubWithOverflow(u65, maxInt(u65), maxInt(u65), 0, 0);
+    try expectSubWithOverflow(u65, maxInt(u65) - 1, maxInt(u65), maxInt(u65), 1);
+    try expectSubWithOverflow(u65, maxInt(u65), maxInt(u65) - 1, 1, 0);
+
+    try expectSubWithOverflow(u128, 4, 105, maxInt(u128) - 100, 1);
+    try expectSubWithOverflow(u128, 1000, 100, 900, 0);
+    try expectSubWithOverflow(u128, maxInt(u128), maxInt(u128), 0, 0);
+    try expectSubWithOverflow(u128, maxInt(u128) - 1, maxInt(u128), maxInt(u128), 1);
+    try expectSubWithOverflow(u128, maxInt(u128), maxInt(u128) - 1, 1, 0);
+
+    try expectSubWithOverflow(i65, 4, 105, -101, 0);
+    try expectSubWithOverflow(i65, 1000, 100, 900, 0);
+    try expectSubWithOverflow(i65, maxInt(i65), maxInt(i65), 0, 0);
+    try expectSubWithOverflow(i65, minInt(i65), minInt(i65), 0, 0);
+    try expectSubWithOverflow(i65, maxInt(i65) - 1, maxInt(i65), -1, 0);
+    try expectSubWithOverflow(i65, maxInt(i65), maxInt(i65) - 1, 1, 0);
+    try expectSubWithOverflow(i65, minInt(i65), 1, maxInt(i65), 1);
+    try expectSubWithOverflow(i65, maxInt(i65), minInt(i65), -1, 1);
+    try expectSubWithOverflow(i65, minInt(i65), maxInt(i65), 1, 1);
+    try expectSubWithOverflow(i65, maxInt(i65), -2, minInt(i65) + 1, 1);
+
+    try expectSubWithOverflow(i128, 4, 105, -101, 0);
+    try expectSubWithOverflow(i128, 1000, 100, 900, 0);
+    try expectSubWithOverflow(i128, maxInt(i128), maxInt(i128), 0, 0);
+    try expectSubWithOverflow(i128, minInt(i128), minInt(i128), 0, 0);
+    try expectSubWithOverflow(i128, maxInt(i128) - 1, maxInt(i128), -1, 0);
+    try expectSubWithOverflow(i128, maxInt(i128), maxInt(i128) - 1, 1, 0);
+    try expectSubWithOverflow(i128, minInt(i128), 1, maxInt(i128), 1);
+    try expectSubWithOverflow(i128, maxInt(i128), minInt(i128), -1, 1);
+    try expectSubWithOverflow(i128, minInt(i128), maxInt(i128), 1, 1);
+    try expectSubWithOverflow(i128, maxInt(i128), -2, minInt(i128) + 1, 1);
 }
 
 test "@shlWithOverflow" {
